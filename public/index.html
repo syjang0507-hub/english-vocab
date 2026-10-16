@@ -12,6 +12,16 @@
 
     <!-- 메인 화면 -->
     <section id="screen-home" class="screen active">
+      <div class="account card" id="account">
+        <img class="account-avatar" id="account-avatar" alt="" hidden referrerpolicy="no-referrer">
+        <div class="account-text">
+          <strong id="account-name">게스트</strong>
+          <small id="account-status">로그인하면 휴대폰·PC에서 단어장과 기록이 이어져요</small>
+        </div>
+        <button class="btn btn-sm btn-primary" id="btn-login" disabled>Google 로그인</button>
+        <button class="btn btn-sm" id="btn-logout" hidden>로그아웃</button>
+      </div>
+
       <header class="hero">
         <span class="hero-badge">Business English</span>
         <h1 class="title">영어 단어 암기</h1>
@@ -136,5 +146,6 @@
   </main>
   <script src="words.js"></script>
   <script src="app.js"></script>
+  <script type="module" src="cloud.js"></script>
 </body>
 </html>

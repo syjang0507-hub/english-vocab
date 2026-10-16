@@ -29,28 +29,58 @@ function makeId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-function loadWords() {
-  let words = readJSON(WORDS_KEY, []);
-  if (readJSON(SEED_VERSION_KEY, 0) < SEED_VERSION) {
-    // 손대지 않은 예전 기본 단어(일반 영어)는 정리하고, 직접 추가·수정한 단어는 남긴다.
-    const legacy = new Set(LEGACY_SAMPLE_WORDS.map(([en, ko]) => `${en}|${ko}`));
-    const userWords = words.filter((w) => !legacy.has(`${w.en}|${w.ko}`));
-    const existing = new Set(userWords.map((w) => w.en.toLowerCase()));
-    const seeds = SAMPLE_WORDS
-      .filter(([en]) => !existing.has(en.toLowerCase()))
-      .map(([en, ko, ex]) => ({ id: makeId(), en, ko, ex }));
-    // 직접 추가한 단어는 등록일순 맨 위에 그대로 둔다.
-    words = [...userWords, ...seeds];
-    saveWords(words);
-    writeJSON(SEED_VERSION_KEY, SEED_VERSION);
-  }
-  return words;
+// 기본 단어 반영: 손대지 않은 예전 기본 단어(일반 영어)는 정리하고,
+// 직접 추가·수정한 단어는 남긴 채 빠진 기본 단어를 채운다.
+function applySeeds(list, version) {
+  if (version >= SEED_VERSION) return { words: list, changed: false };
+  const legacy = new Set(LEGACY_SAMPLE_WORDS.map(([en, ko]) => `${en}|${ko}`));
+  const userWords = list.filter((w) => !legacy.has(`${w.en}|${w.ko}`));
+  const existing = new Set(userWords.map((w) => w.en.toLowerCase()));
+  const seeds = SAMPLE_WORDS
+    .filter(([en]) => !existing.has(en.toLowerCase()))
+    .map(([en, ko, ex]) => ({ id: makeId(), en, ko, ex }));
+  // 직접 추가한 단어는 등록일순 맨 위에 그대로 둔다.
+  return { words: [...userWords, ...seeds], changed: true };
 }
-function saveWords(words) { writeJSON(WORDS_KEY, words); }
-function loadHistory() { return readJSON(HISTORY_KEY, []); }
-function saveHistory(history) { writeJSON(HISTORY_KEY, history); }
 
-let words = loadWords();
+// ===== 데이터 저장 위치 =====
+// 로그인 전에는 이 브라우저(localStorage)에, Google 로그인 후에는 Firebase에 저장한다.
+// 앱의 나머지 코드는 words / loadHistory / saveWords / saveHistory만 쓰고,
+// 저장 위치는 cloud.js가 setDataSource()로 바꿔 끼운다.
+const localSource = {
+  load() {
+    const { words: list, changed } = applySeeds(readJSON(WORDS_KEY, []), readJSON(SEED_VERSION_KEY, 0));
+    if (changed) {
+      writeJSON(WORDS_KEY, list);
+      writeJSON(SEED_VERSION_KEY, SEED_VERSION);
+    }
+    return { words: list, history: readJSON(HISTORY_KEY, []) };
+  },
+  save(key, value) {
+    writeJSON(key === 'words' ? WORDS_KEY : HISTORY_KEY, value);
+  },
+};
+
+let dataSource = localSource;
+let { words, history: historyCache } = localSource.load();
+
+function saveWords(list) { dataSource.save('words', list); }
+function loadHistory() { return historyCache; }
+function saveHistory(list) {
+  historyCache = list;
+  dataSource.save('history', list);
+}
+
+// cloud.js가 로그인/로그아웃 시 호출한다. source가 null이면 브라우저 저장으로 돌아간다.
+function setDataSource(source, data) {
+  dataSource = source || localSource;
+  ({ words, history: historyCache } = data || localSource.load());
+  editingId = null;
+  closeAddForm();
+  renderHomeStats();
+  if ($('screen-words').classList.contains('active')) renderWordList();
+  if ($('screen-history').classList.contains('active')) renderHistory();
+}
 
 // ===== 화면 전환 =====
 const $ = (id) => document.getElementById(id);
