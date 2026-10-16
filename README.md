@@ -11,6 +11,13 @@
 ## 데이터 저장
 - **로그인 전**: 이 브라우저(localStorage)에 저장
 - **Google 로그인 후**: Firebase Realtime Database `users/{uid}/`에 저장되어 기기 간 동기화. 처음 로그인하면 브라우저에 있던 데이터를 계정으로 옮깁니다.
+
+```
+users/{uid}/
+  word_list: [{ id, english, korean, example, date, accuracy }]   # accuracy = 정답률(%), 시험 전이면 없음
+  exam_list: [{ id, date, test: [{ english, korean, correct, shown, answer, word_id }] }]   # test = 10문제
+  seed_version: 기본 단어 반영 버전
+```
 - 접근 권한: `database.rules.json` — 본인 계정 데이터만 읽기/쓰기 가능
 
 ## 파일

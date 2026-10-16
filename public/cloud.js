@@ -40,13 +40,62 @@ function setStatus(text, isError = false) {
 const clean = (value) => JSON.parse(JSON.stringify(value ?? []));
 const toArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : value ? Object.values(value) : []);
 
+// ===== Firebase 저장 구조 =====
+// users/{uid}/
+//   word_list: [{ id, english, korean, example, date, accuracy }]   accuracy: 정답률(%), 시험 본 적 없으면 없음
+//   exam_list: [{ id, date, test: [{ english, korean, correct, shown, answer, word_id }] }]
+//   seed_version: 기본 단어 반영 버전 (새 기기에서 지운 기본 단어가 되살아나지 않도록)
+
+function toWordList(list, exams) {
+  const statsFor = buildWordStats(exams);
+  return list.map((w) => {
+    const s = statsFor(w);
+    const item = { id: w.id, english: w.en, korean: w.ko, example: w.ex || '', date: w.date || timestamp() };
+    if (s.total) item.accuracy = Math.round((s.correct / s.total) * 100);
+    return item;
+  });
+}
+
+function fromWordList(list) {
+  return toArray(list).map((w) => ({ id: w.id || makeId(), en: w.english, ko: w.korean, ex: w.example || '', date: w.date }));
+}
+
+function toExamList(records) {
+  return records.map((r) => ({
+    id: r.id,
+    date: timestamp(new Date(r.date)), // 예전 기록의 UTC("…Z") 날짜도 한국 시간 형식으로 맞춘다
+    test: r.items.map((it) => {
+      const item = { english: it.en, korean: it.ko, correct: it.correct };
+      if (it.shown !== undefined) item.shown = it.shown;
+      if (it.answer !== undefined) item.answer = it.answer;
+      if (it.wordId) item.word_id = it.wordId;
+      return item;
+    }),
+  }));
+}
+
+function fromExamList(list) {
+  return toArray(list).map((e) => {
+    const items = toArray(e.test).map((t) => {
+      const it = { en: t.english, ko: t.korean, correct: !!t.correct };
+      if (t.shown !== undefined) { it.shown = t.shown; it.isTrue = t.shown === t.korean; }
+      if (t.answer !== undefined) it.answer = t.answer;
+      if (t.word_id) it.wordId = t.word_id;
+      return it;
+    });
+    return { id: e.id || makeId(), date: e.date, score: items.filter((it) => it.correct).length, total: items.length, items };
+  });
+}
+
+// 단어를 바꾸든 시험을 보든 정답률이 함께 바뀌므로 두 목록을 한 번에 저장한다.
 function cloudSource(uid) {
   let pending = 0;
   return {
-    save(key, value) {
+    save() {
       pending++;
       setStatus('저장 중…');
-      set(ref(db, `users/${uid}/${key}`), clean(value))
+      const history = loadHistory();
+      update(ref(db, `users/${uid}`), clean({ word_list: toWordList(words, history), exam_list: toExamList(history) }))
         .then(() => { if (--pending === 0) setStatus('Firebase에 저장됨'); })
         .catch((err) => {
           pending--;
@@ -58,19 +107,41 @@ function cloudSource(uid) {
 }
 
 // 처음 로그인한 계정이면 이 브라우저에 있던 단어장과 기록을 계정으로 옮긴다.
+// 예전 구조(words / history / seedVersion)로 저장된 계정은 새 구조로 한 번 변환한다.
 async function loadUserData(uid) {
   const userRef = ref(db, `users/${uid}`);
   const saved = (await get(userRef)).val();
 
+  let data;
+  let version;
+  let note = 'Firebase와 동기화됨';
+  let rewrite = false;
+
   if (saved === null) {
-    const local = localSource.load();
-    await set(userRef, clean({ words: local.words, history: local.history, seedVersion: SEED_VERSION }));
-    return { data: local, migrated: true };
+    data = localSource.load();
+    version = SEED_VERSION;
+    note = '이 브라우저의 단어장과 기록을 계정으로 옮겼어요';
+    rewrite = true;
+  } else if (saved.word_list === undefined && saved.words !== undefined) {
+    data = { words: toArray(saved.words), history: toArray(saved.history) };
+    version = saved.seedVersion || 0;
+    rewrite = true;
+  } else {
+    data = { words: fromWordList(saved.word_list), history: fromExamList(saved.exam_list) };
+    version = saved.seed_version || 0;
   }
 
-  const { words: list, changed } = applySeeds(toArray(saved.words), saved.seedVersion || 0);
-  if (changed) await update(userRef, { words: clean(list), seedVersion: SEED_VERSION });
-  return { data: { words: list, history: toArray(saved.history) }, migrated: false };
+  const seeded = applySeeds(data.words, version);
+  data.words = seeded.words;
+
+  if (rewrite || seeded.changed) {
+    await set(userRef, clean({
+      word_list: toWordList(data.words, data.history),
+      exam_list: toExamList(data.history),
+      seed_version: SEED_VERSION,
+    }));
+  }
+  return { data, note };
 }
 
 function showGuest() {
@@ -99,9 +170,9 @@ onAuthStateChanged(auth, async (user) => {
   showUser(user);
   setStatus('Firebase에서 불러오는 중…');
   try {
-    const { data, migrated } = await loadUserData(user.uid);
+    const { data, note } = await loadUserData(user.uid);
     setDataSource(cloudSource(user.uid), data);
-    setStatus(migrated ? '이 브라우저의 단어장과 기록을 계정으로 옮겼어요' : 'Firebase와 동기화됨');
+    setStatus(note);
   } catch (err) {
     console.error(err);
     setDataSource(null);
@@ -136,5 +207,8 @@ ui.login.addEventListener('click', async () => {
 });
 
 ui.logout.addEventListener('click', () => signOut(auth));
+
+// 저장 구조 변환 함수 (점검·테스트용)
+export { toWordList, fromWordList, toExamList, fromExamList };
 
 ui.login.disabled = false;

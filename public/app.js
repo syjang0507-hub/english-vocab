@@ -29,6 +29,14 @@ function makeId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+// "2026-10-16T22:53:12+09:00" 형식 (사람이 읽기 쉽고 Date로 다시 읽을 수 있음)
+function timestamp(d = new Date()) {
+  const pad = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0');
+  const off = -d.getTimezoneOffset();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+    + `${off >= 0 ? '+' : '-'}${pad(off / 60)}:${pad(off % 60)}`;
+}
+
 // 기본 단어 반영: 손대지 않은 예전 기본 단어(일반 영어)는 정리하고,
 // 직접 추가·수정한 단어는 남긴 채 빠진 기본 단어를 채운다.
 function applySeeds(list, version) {
@@ -38,7 +46,7 @@ function applySeeds(list, version) {
   const existing = new Set(userWords.map((w) => w.en.toLowerCase()));
   const seeds = SAMPLE_WORDS
     .filter(([en]) => !existing.has(en.toLowerCase()))
-    .map(([en, ko, ex]) => ({ id: makeId(), en, ko, ex }));
+    .map(([en, ko, ex]) => ({ id: makeId(), en, ko, ex, date: timestamp() }));
   // 직접 추가한 단어는 등록일순 맨 위에 그대로 둔다.
   return { words: [...userWords, ...seeds], changed: true };
 }
@@ -127,7 +135,7 @@ function renderHomeStats() {
 // ===== 정답률 =====
 // 시험 문항은 wordId로 단어와 연결한다 (단어를 편집해도 기록 유지).
 // wordId가 없는 예전 기록은 영어 단어로 매칭한다.
-function buildWordStats() {
+function buildWordStats(records = loadHistory()) {
   const byId = new Map();
   const byEn = new Map();
   const add = (map, key, correct) => {
@@ -136,7 +144,7 @@ function buildWordStats() {
     if (correct) s.correct++;
     map.set(key, s);
   };
-  loadHistory().forEach((rec) => rec.items.forEach((it) => {
+  records.forEach((rec) => rec.items.forEach((it) => {
     if (it.wordId) add(byId, it.wordId, it.correct);
     else add(byEn, it.en.toLowerCase(), it.correct);
   }));
@@ -274,7 +282,7 @@ function finishQuiz() {
     correct: quiz.answers[i] === q.isTrue,
   }));
   const score = items.filter((it) => it.correct).length;
-  const record = { id: makeId(), date: new Date().toISOString(), score, total: items.length, items };
+  const record = { id: makeId(), date: timestamp(), score, total: items.length, items };
 
   const history = loadHistory();
   history.push(record);
@@ -518,7 +526,7 @@ $('add-form').addEventListener('submit', (e) => {
   const value = validateWord($('input-en'), $('input-ko'));
   if (!value) return;
 
-  const word = { id: makeId(), ...value, ex: $('input-ex').value.trim() };
+  const word = { id: makeId(), ...value, ex: $('input-ex').value.trim(), date: timestamp() };
   words.unshift(word);
   saveWords(words);
   closeAddForm();
