@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>영어 단어 암기</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+
+    <!-- 메인 화면 -->
+    <section id="screen-home" class="screen active">
+      <header class="hero">
+        <span class="hero-badge">Business English</span>
+        <h1 class="title">영어 단어 암기</h1>
+        <p class="subtitle">회의·계약·리포트에서 바로 쓰는 표현, 오늘도 10개씩!</p>
+        <div class="stats">
+          <div class="stat"><span class="stat-value" id="stat-words">0</span><span class="stat-label">등록 단어</span></div>
+          <div class="stat"><span class="stat-value" id="stat-tests">0</span><span class="stat-label">시험 횟수</span></div>
+          <div class="stat"><span class="stat-value" id="stat-rate">-</span><span class="stat-label">평균 정답률</span></div>
+        </div>
+      </header>
+
+      <div class="menu">
+        <button class="menu-item menu-primary" id="btn-start">
+          <span class="menu-icon">▶</span>
+          <span class="menu-text"><strong>시험 시작</strong><small>무작위 10문제로 실력 확인</small></span>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-item" id="btn-words">
+          <span class="menu-icon">✎</span>
+          <span class="menu-text"><strong>단어 관리</strong><small>단어 추가 · 편집 · 삭제</small></span>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-item" id="btn-history">
+          <span class="menu-icon">☰</span>
+          <span class="menu-text"><strong>시험 기록 조회</strong><small>지난 시험 결과 다시 보기</small></span>
+          <span class="menu-arrow">›</span>
+        </button>
+      </div>
+      <p class="notice" id="home-notice"></p>
+    </section>
+
+    <!-- 시험 화면 -->
+    <section id="screen-quiz" class="screen">
+      <div class="topbar">
+        <button class="btn btn-ghost" id="btn-quit">✕ 그만두기</button>
+        <span class="progress" id="quiz-progress">1 / 10</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="quiz-progress-fill"></div></div>
+
+      <div class="card quiz-card" id="quiz-card">
+        <span class="quiz-label">BUSINESS ENGLISH</span>
+        <p class="word" id="quiz-word"></p>
+        <p class="quiz-example" id="quiz-example"></p>
+        <div class="divider"></div>
+        <p class="meaning" id="quiz-meaning"></p>
+        <p class="quiz-feedback" id="quiz-feedback" aria-live="polite"></p>
+      </div>
+
+      <p class="quiz-hint">이 뜻이 맞을까요?</p>
+      <div class="grade">
+        <button class="btn btn-correct" id="btn-correct">○ 맞음</button>
+        <button class="btn btn-wrong" id="btn-wrong">✕ 틀림</button>
+      </div>
+    </section>
+
+    <!-- 시험 결과 화면 -->
+    <section id="screen-result" class="screen">
+      <div class="topbar" id="result-topbar" hidden>
+        <button class="btn btn-ghost" data-go="history">‹ 시험 기록</button>
+        <h2 class="result-title" id="result-title"></h2>
+      </div>
+      <div class="result-hero card">
+        <div class="ring" id="result-ring">
+          <div class="ring-inner">
+            <span><span class="ring-score" id="result-score"></span><span class="ring-total" id="result-total"></span></span>
+          </div>
+        </div>
+        <p class="result-msg" id="result-msg"></p>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th class="td-num">#</th><th>영어</th><th>제시된 뜻</th><th>내 답</th><th>결과</th></tr></thead>
+          <tbody id="result-body"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-primary btn-block btn-lg" id="btn-result-done">메인으로</button>
+    </section>
+
+    <!-- 단어 관리 화면 -->
+    <section id="screen-words" class="screen">
+      <div class="topbar">
+        <button class="btn btn-ghost" data-go="home">‹ 메인</button>
+        <h2>단어 관리</h2>
+      </div>
+
+      <button class="btn btn-primary btn-block btn-lg" id="btn-open-add">+ 새로운 단어 추가</button>
+
+      <form class="add-form card" id="add-form" hidden>
+        <input type="text" id="input-en" placeholder="영어 단어" autocomplete="off">
+        <input type="text" id="input-ko" placeholder="한글 뜻" autocomplete="off">
+        <input type="text" id="input-ex" class="input-wide" placeholder="예문 (선택)" autocomplete="off">
+        <div class="add-actions">
+          <button type="button" class="btn" id="btn-cancel-add">취소</button>
+          <button type="submit" class="btn btn-primary">저장</button>
+        </div>
+      </form>
+
+      <div class="list-bar">
+        <p class="count" id="word-count"></p>
+        <div class="sort-tabs" role="group" aria-label="정렬">
+          <button class="sort-tab" data-sort="date">등록일순 <span class="sort-dir"></span></button>
+          <button class="sort-tab" data-sort="rate">정답률순 <span class="sort-dir"></span></button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="table word-table">
+          <thead><tr><th>표현 · 예문</th><th>뜻</th><th>정답률</th><th></th></tr></thead>
+          <tbody id="word-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 시험 기록 화면 -->
+    <section id="screen-history" class="screen">
+      <div class="topbar">
+        <button class="btn btn-ghost" data-go="home">‹ 메인</button>
+        <h2>시험 기록</h2>
+      </div>
+      <ul class="history" id="history-list"></ul>
+    </section>
+
+  </main>
+  <script src="words.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
