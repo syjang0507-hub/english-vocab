@@ -13,10 +13,11 @@
 ## 파일
 | 파일 | 내용 |
 |---|---|
-| `index.html` | 화면 구조 |
-| `style.css` | 디자인 |
-| `app.js` | 동작 로직 |
-| `words.js` | 기본 단어 100개 (`[표현, 뜻, 예문]`) |
+| `public/index.html` | 화면 구조 |
+| `public/style.css` | 디자인 |
+| `public/app.js` | 동작 로직 |
+| `public/words.js` | 기본 단어 100개 (`[표현, 뜻, 예문]`) |
 
 ## 배포
-Firebase Hosting으로 배포합니다. `main` 브랜치에 push하면 GitHub Actions가 자동으로 배포합니다.
+- 사이트: https://english-vocab-syjang.web.app
+- Firebase Hosting이 `public/` 폴더만 배포합니다. `main` 브랜치에 push하면 GitHub Actions가 자동으로 배포합니다.
